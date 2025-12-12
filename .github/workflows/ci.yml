@@ -53,60 +53,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Start MinIO
+      - name: Start services with Docker Compose
         run: |
-          echo "Starting MinIO server..."
-          docker run -d \
-            --name minio \
-            -p 9000:9000 \
-            -p 9001:9001 \
-            -e MINIO_ROOT_USER=minioadmin \
-            -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data --console-address ":9001"
-          echo "MinIO container started"
+          echo "Starting MinIO service..."
+          docker-compose -f docker/compose.dev.yml up -d minio minio-init
+          echo "Services started, waiting for MinIO to be ready..."
 
       - name: Wait for MinIO to be ready
         run: |
-          echo "Waiting for MinIO service to be ready..."
+          echo "Waiting for MinIO to accept connections..."
           max_attempts=60
           attempt=0
           while [ $attempt -lt $max_attempts ]; do
-            # Try to connect to MinIO health endpoint
             if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-              echo "✅ MinIO is ready!"
-              exit 0
-            fi
-            # Also try simple TCP connection as fallback
-            if timeout 2 bash -c "cat < /dev/null > /dev/tcp/localhost/9000" 2>/dev/null; then
-              echo "MinIO port is open, waiting a bit more..."
-              sleep 3
-              if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-                echo "✅ MinIO is ready!"
-                exit 0
-              fi
+              echo "✅ MinIO is healthy!"
+              sleep 2
+              break
             fi
             attempt=$((attempt + 1))
-            echo "Waiting for MinIO... attempt $attempt/$max_attempts"
-            sleep 2
+            echo "Waiting... attempt $attempt/$max_attempts"
+            sleep 1
           done
-          echo "❌ MinIO did not become ready in time"
-          docker logs minio || true
-          exit 1
-
-      - name: Cleanup MinIO
-        if: always()
-        run: |
-          docker stop minio || true
-          docker rm minio || true
-
-      - name: Setup MinIO bucket
-        run: |
-          echo "Setting up MinIO bucket..."
-          curl -fsSL -O https://dl.min.io/client/mc/release/linux-amd64/mc
-          chmod +x mc
-          ./mc alias set myminio http://localhost:9000 minioadmin minioadmin
-          ./mc mb myminio/downloads --ignore-existing
-          echo "MinIO bucket setup complete"
+          if [ $attempt -eq $max_attempts ]; then
+            echo "❌ MinIO failed to become ready"
+            docker-compose -f docker/compose.dev.yml logs minio
+            exit 1
+          fi
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -128,6 +100,10 @@ jobs:
           DOWNLOAD_DELAY_ENABLED: "true"
           DOWNLOAD_DELAY_MIN_MS: "1000"
           DOWNLOAD_DELAY_MAX_MS: "2000"
+
+      - name: Stop services
+        if: always()
+        run: docker-compose -f docker/compose.dev.yml down
 
       - name: Test Results Summary
         if: always()
