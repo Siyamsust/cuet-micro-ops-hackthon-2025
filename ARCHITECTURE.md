@@ -1,5 +1,7 @@
 # Long-Running Download Architecture Design
 
+> **Note:** This document uses [Mermaid](https://mermaid.js.org/) diagrams that are automatically rendered on GitHub. The diagrams will display as interactive visualizations when viewing this file on GitHub.
+
 ## Executive Summary
 
 This document outlines a **complete architecture design** for integrating the Delineate download microservice with a fullstack application while gracefully handling variable download times (10-120+ seconds).
@@ -20,127 +22,89 @@ This document outlines a **complete architecture design** for integrating the De
 
 ### System Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                                    │
-├──────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────┐  ┌─────────────────────────────────────────┐  │
-│  │  React/Next.js App   │  │  Web Sockets / Server-Sent Events       │  │
-│  │  - Download UI       │◄─┼──  Real-time Progress Updates           │  │
-│  │  - Progress Display  │  │                                          │  │
-│  │  - Error Handling    │  └─────────────────────────────────────────┘  │
-│  └────────┬─────────────┘                                                │
-└───────────┼────────────────────────────────────────────────────────────┘
-            │ HTTP/WebSocket
-            ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                  REVERSE PROXY LAYER                                    │
-├──────────────────────────────────────────────────────────────────────────┤
-│  ┌───────────────────────────────────────────────────────────────────┐  │
-│  │  Nginx / Cloudflare / AWS ALB                                    │  │
-│  │  - Connection Pooling                                            │  │
-│  │  - Load Balancing                                                │  │
-│  │  - Timeout Configuration (120s+)                                │  │
-│  │  - WebSocket Support                                             │  │
-│  └───────────────────────────────────────────────────────────────────┘  │
-└───────────┬────────────────────────────────────────────────────────────┘
-            │
-            ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│              API SERVER LAYER (Hono.js)                                 │
-├──────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────┐                                               │
-│  │  Request Handler     │                                               │
-│  │  - POST /v1/download/initiate                                        │
-│  │    → Returns jobId immediately (fast)                               │
-│  │  - WebSocket /v1/download/subscribe/:jobId                          │
-│  │    → Real-time progress updates                                     │
-│  │  - GET /v1/download/status/:jobId                                   │
-│  │    → Poll current status (fallback)                                │
-│  └──────────────────────┘                                               │
-│         │                                                               │
-│         ▼                                                               │
-│  ┌──────────────────────┐                                               │
-│  │  Job Queue Producer  │                                               │
-│  │  - Enqueue job to    │                                               │
-│  │    Redis/Bull        │                                               │
-│  └──────────────────────┘                                               │
-│         │                                                               │
-│         ▼                                                               │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │  Middleware Stack                                                │  │
-│  │  - Authentication    - Request ID Tracking                       │  │
-│  │  - Rate Limiting     - Error Handling                            │  │
-│  │  - CORS              - Observability (OpenTelemetry)             │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
-            │
-            ├─────────────────────┬──────────────────┬──────────────────┐
-            ▼                     ▼                  ▼                  ▼
-┌──────────────────┐  ┌─────────────────┐  ┌─────────────┐  ┌──────────────┐
-│   Redis/Bull     │  │   MinIO S3      │  │   PostgreSQL│  │    Sentry    │
-│   Job Queue      │  │   Storage       │  │   Database  │  │ Error Track. │
-│   (async jobs)   │  │   (downloads)   │  │  (tracking) │  │              │
-└────────┬─────────┘  └─────────────────┘  └─────────────┘  └──────────────┘
-         │
-         ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│            BACKGROUND WORKER LAYER                                       │
-├──────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │  Bull Worker Process                                             │   │
-│  │  1. Dequeue job from Redis                                       │   │
-│  │  2. Update job status → "processing"                             │   │
-│  │  3. Download file from source → MinIO                            │   │
-│  │  4. Emit progress updates to WebSocket clients                   │   │
-│  │  5. Generate presigned S3 URL                                    │   │
-│  │  6. Update job status → "completed" / "failed"                   │   │
-│  │  7. Notify connected clients                                     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph ClientLayer["CLIENT LAYER"]
+        ReactApp["React/Next.js App<br/>- Download UI<br/>- Progress Display<br/>- Error Handling"]
+        WebSocket["Web Sockets / SSE<br/>Real-time Progress Updates"]
+        ReactApp <--> WebSocket
+    end
+
+    subgraph ProxyLayer["REVERSE PROXY LAYER"]
+        Proxy["Nginx / Cloudflare / AWS ALB<br/>- Connection Pooling<br/>- Load Balancing<br/>- Timeout Config (120s+)<br/>- WebSocket Support"]
+    end
+
+    subgraph APILayer["API SERVER LAYER (Hono.js)"]
+        RequestHandler["Request Handler<br/>POST /v1/download/initiate<br/>WS /v1/download/subscribe/:jobId<br/>GET /v1/download/status/:jobId"]
+        JobQueueProducer["Job Queue Producer<br/>Enqueue job to Redis/Bull"]
+        Middleware["Middleware Stack<br/>- Authentication<br/>- Rate Limiting<br/>- CORS<br/>- Request ID Tracking<br/>- Error Handling<br/>- Observability (OpenTelemetry)"]
+        RequestHandler --> JobQueueProducer
+        JobQueueProducer --> Middleware
+    end
+
+    subgraph StorageLayer["STORAGE & SERVICES"]
+        Redis["Redis/Bull<br/>Job Queue<br/>(async jobs)"]
+        MinIO["MinIO S3<br/>Storage<br/>(downloads)"]
+        PostgreSQL["PostgreSQL<br/>Database<br/>(tracking)"]
+        Sentry["Sentry<br/>Error Tracking"]
+    end
+
+    subgraph WorkerLayer["BACKGROUND WORKER LAYER"]
+        BullWorker["Bull Worker Process<br/>1. Dequeue job from Redis<br/>2. Update status: processing<br/>3. Download file → MinIO<br/>4. Emit progress via WebSocket<br/>5. Generate presigned S3 URL<br/>6. Update status: completed/failed<br/>7. Notify connected clients"]
+    end
+
+    ClientLayer -->|HTTP/WebSocket| ProxyLayer
+    ProxyLayer -->|HTTP/WebSocket| APILayer
+    APILayer --> Redis
+    APILayer --> MinIO
+    APILayer --> PostgreSQL
+    APILayer --> Sentry
+    Redis --> BullWorker
+    BullWorker --> MinIO
+    BullWorker --> PostgreSQL
+    BullWorker -.->|Progress Updates| WebSocket
 ```
 
 ### Data Flow for Long-Running Download
 
-```
-Client Request (Fast)
-        │
-        ▼
-POST /v1/download/initiate {"file_id": 70000}
-        │
-        ▼
-API Server
-├─ Generate jobId (UUID)
-├─ Create job record in DB (status: "queued")
-├─ Enqueue to Redis/Bull
-└─ Return immediately: {"jobId": "abc123", "status": "queued"}
-        │
-        ▼
-Client receives response in <100ms ✓
-(No timeout, user gets instant feedback)
-        │
-        ▼
-Client opens WebSocket
-WS /v1/download/subscribe/abc123
-        │
-        ▼
-Background Worker
-├─ Dequeue job from Redis
-├─ Update DB: status = "processing"
-├─ Download file (10-120s delay)
-│  ├─ 25% complete → Emit "progress" event
-│  ├─ 50% complete → Emit "progress" event
-│  ├─ 75% complete → Emit "progress" event
-│  └─ 100% complete → Move to S3
-├─ Generate presigned URL
-├─ Update DB: status = "completed", downloadUrl, expiresAt
-└─ Emit "completed" event with download link
-        │
-        ▼
-Client receives updates via WebSocket
-- Shows progress bar
-- Enables download button
-- User clicks to download
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as API Server
+    participant DB as PostgreSQL
+    participant Queue as Redis/Bull
+    participant Worker as Background Worker
+    participant S3 as MinIO S3
+    participant WS as WebSocket
+
+    Note over Client: Client Request (Fast)
+    Client->>API: POST /v1/download/initiate<br/>{"file_id": 70000}
+    
+    API->>API: Generate jobId (UUID)
+    API->>DB: Create job record<br/>(status: "queued")
+    API->>Queue: Enqueue job to Redis/Bull
+    API-->>Client: Return immediately<br/>{"jobId": "abc123", "status": "queued"}<br/>(<100ms response ✓)
+    
+    Note over Client: No timeout!<br/>User gets instant feedback
+    
+    Client->>WS: Open WebSocket<br/>WS /v1/download/subscribe/abc123
+    
+    Worker->>Queue: Dequeue job from Redis
+    Worker->>DB: Update status = "processing"
+    
+    Note over Worker,S3: Download file (10-120s delay)
+    Worker->>S3: Download file
+    Worker->>WS: Emit progress: 25% complete
+    Worker->>WS: Emit progress: 50% complete
+    Worker->>WS: Emit progress: 75% complete
+    Worker->>S3: Upload to S3 (100% complete)
+    
+    Worker->>S3: Generate presigned URL
+    Worker->>DB: Update status = "completed"<br/>downloadUrl, expiresAt
+    Worker->>WS: Emit "completed" event<br/>with download link
+    
+    WS-->>Client: Progress updates via WebSocket
+    Note over Client: Shows progress bar<br/>Enables download button<br/>User clicks to download
 ```
 
 ---
