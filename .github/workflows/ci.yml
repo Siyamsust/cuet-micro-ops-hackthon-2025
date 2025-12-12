@@ -6,37 +6,40 @@ on:
   pull_request:
     branches: [main, master]
 
+env:
+  NODE_VERSION: "24"
+
 jobs:
   lint:
-    name: Lint
+    name: Lint & Format Check
     runs-on: ubuntu-24.04
-    container:
-      image: node:24-slim
+    timeout-minutes: 10
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache node modules
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run ESLint
         run: npm run lint
+        continue-on-error: false
 
-      - name: Check formatting
+      - name: Check code formatting
         run: npm run format:check
+        continue-on-error: false
 
   test:
     name: E2E Tests
     runs-on: ubuntu-24.04
     needs: lint
+    timeout-minutes: 15
     services:
       minio:
         image: minio/minio:latest
@@ -51,36 +54,39 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    container:
-      image: node:24-slim
+          --health-start-period 10s
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache node modules
-        uses: actions/cache@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          path: node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Wait for MinIO to be ready
+        run: |
+          echo "Waiting for MinIO service to be healthy..."
+          timeout 60 bash -c 'until curl -f http://minio:9000/minio/health/live 2>/dev/null; do sleep 2; done' || true
+
       - name: Setup MinIO bucket
         run: |
-          apt-get update && apt-get install -y curl
+          echo "Setting up MinIO bucket..."
           curl -O https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x mc
-          ./mc alias set myminio http://minio:9000 minioadmin minioadmin
-          ./mc mb myminio/downloads || true
-        continue-on-error: true
+          ./mc alias set myminio http://minio:9000 minioadmin minioadmin || exit 1
+          ./mc mb myminio/downloads || echo "Bucket may already exist"
+          echo "MinIO bucket setup complete"
+        continue-on-error: false
 
       - name: Run E2E tests
         run: npm run test:e2e
         env:
-          NODE_ENV: development
+          NODE_ENV: test
           PORT: 3000
           S3_REGION: us-east-1
           S3_ENDPOINT: http://minio:9000
@@ -94,13 +100,28 @@ jobs:
           RATE_LIMIT_WINDOW_MS: "60000"
           RATE_LIMIT_MAX_REQUESTS: "100"
           CORS_ORIGINS: "*"
+          DOWNLOAD_DELAY_ENABLED: "true"
+          DOWNLOAD_DELAY_MIN_MS: "1000"
+          DOWNLOAD_DELAY_MAX_MS: "2000"
+        continue-on-error: false
+
+      - name: Test Results Summary
+        if: always()
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ All E2E tests passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E tests failed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
 
   build:
     name: Build Docker Image
     runs-on: ubuntu-24.04
     needs: test
+    timeout-minutes: 20
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
@@ -112,6 +133,43 @@ jobs:
           context: .
           file: docker/Dockerfile.prod
           push: false
-          tags: delineate-hackathon-challenge:${{ github.sha }}
+          tags: |
+            delineate-hackathon-challenge:latest
+            delineate-hackathon-challenge:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Build Summary
+        if: always()
+        run: |
+          echo "## Docker Build Results" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Docker image built successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "- Image: `delineate-hackathon-challenge:${{ github.sha }}`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Docker build failed. Check logs for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  ci-status:
+    name: CI Pipeline Status
+    runs-on: ubuntu-24.04
+    needs: [lint, test, build]
+    if: always()
+    steps:
+      - name: Pipeline Summary
+        run: |
+          echo "## 🚀 CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Stage | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint & Format | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ needs.lint.result }}" == "success" ] && [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.build.result }}" == "success" ]; then
+            echo "✅ **All checks passed!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Some checks failed. Please review the logs.**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

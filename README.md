@@ -1,5 +1,7 @@
 # Delineate Hackathon Challenge - CUET Fest 2025
 
+[![CI](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml/badge.svg)](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml)
+
 ## The Scenario
 
 This microservice simulates a **real-world file download system** where processing times vary significantly:
@@ -525,6 +527,102 @@ npm run test:e2e     # Run E2E tests
 npm run docker:dev   # Start with Docker (development)
 npm run docker:prod  # Start with Docker (production)
 ```
+
+## CI/CD Pipeline
+
+This project uses **GitHub Actions** for continuous integration and deployment. The CI/CD pipeline automatically runs on every push and pull request to the `main` or `master` branch.
+
+### Pipeline Stages
+
+The CI pipeline consists of four main stages:
+
+```
+┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│    Lint     │───▶│    Test     │───▶│    Build    │───▶│   Status   │
+│  (ESLint,   │    │   (E2E)     │    │  (Docker)   │    │  Summary   │
+│  Prettier)  │    │             │    │             │    │            │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+#### 1. Lint & Format Check
+- Runs ESLint to check code quality
+- Verifies code formatting with Prettier
+- **Fails fast** if any linting or formatting issues are found
+
+#### 2. E2E Tests
+- Sets up MinIO S3-compatible storage service
+- Creates required buckets
+- Runs comprehensive end-to-end tests
+- Validates all API endpoints and functionality
+
+#### 3. Docker Build
+- Builds production Docker image
+- Uses Docker Buildx with GitHub Actions cache
+- Validates Dockerfile configuration
+
+#### 4. Pipeline Status
+- Aggregates results from all stages
+- Provides summary report
+- Fails if any stage fails
+
+### Running Tests Locally
+
+Before pushing your code, it's recommended to run all checks locally:
+
+```bash
+# 1. Run linting
+npm run lint
+
+# 2. Check formatting
+npm run format:check
+
+# 3. Run E2E tests (requires MinIO or Docker)
+npm run test:e2e
+
+# Or test with Docker Compose (includes MinIO)
+npm run docker:dev
+# Then in another terminal:
+npm run test:e2e
+```
+
+### CI/CD Configuration
+
+The pipeline configuration is located at `.github/workflows/ci.yml`. Key features:
+
+- ✅ **Caching**: Node modules and Docker layers are cached for faster builds
+- ✅ **Parallelization**: Lint and test stages run in parallel where possible
+- ✅ **Fail Fast**: Pipeline stops immediately on first failure
+- ✅ **Clear Reporting**: Test results and build summaries are displayed in GitHub Actions UI
+- ✅ **Timeout Protection**: Each job has timeout limits to prevent hanging builds
+
+### For Contributors
+
+1. **Before pushing code:**
+   ```bash
+   npm run lint          # Fix any linting issues
+   npm run format        # Format your code
+   npm run format:check  # Verify formatting
+   npm run test:e2e      # Run tests locally
+   ```
+
+2. **Pull Request Process:**
+   - Create a feature branch from `main`
+   - Make your changes
+   - Ensure all local checks pass
+   - Push to your branch
+   - Create a pull request
+   - CI pipeline will automatically run
+   - Address any CI failures before requesting review
+
+3. **CI Badge:**
+   - The CI badge at the top of this README shows the current pipeline status
+   - Green = All checks passing
+   - Red = Some checks failing
+   - Yellow = Pipeline in progress
+
+### Pipeline Status
+
+Check the latest pipeline runs at: [GitHub Actions](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions)
 
 ## Project Structure
 
