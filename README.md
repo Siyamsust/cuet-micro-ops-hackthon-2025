@@ -451,6 +451,16 @@ npm run docker:dev
 npm run docker:prod
 ```
 
+## CI/CD
+
+[![CI](https://github.com/your-org/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/your-org/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml)
+
+- Runs on push/PR to `main` or `master`
+- Steps: install deps → lint → format check → E2E tests (download delay disabled) → Docker image build (validation only)
+- Caching: npm cache via `actions/setup-node`; Docker build cache via GitHub Actions cache
+- CD: pushes to `main` or tags `v*.*.*` build and publish `ghcr.io/<owner>/<repo>` using `docker/Dockerfile.prod` with `GITHUB_TOKEN`
+- Run locally before pushing: `npm run lint && npm run format:check && npm run test:e2e` (optional: `docker build -f docker/Dockerfile.prod .`)
+
 ## Environment Variables
 
 Create a `.env` file in the project root:
@@ -561,3 +571,5 @@ npm run docker:prod  # Start with Docker (production)
 ## License
 
 MIT
+#   T e s t i n g   C I / C D  
+ 
