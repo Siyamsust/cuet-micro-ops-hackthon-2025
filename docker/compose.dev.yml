@@ -9,9 +9,6 @@ services:
       - "3000:3000"
     volumes:
       - ../src:/app/src
-      - ../.env:/app/.env
-    env_file:
-      - ../.env
     environment:
       - NODE_ENV=development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://delineate-jaeger:4318

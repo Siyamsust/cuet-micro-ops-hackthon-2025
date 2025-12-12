@@ -56,7 +56,7 @@ jobs:
       - name: Start services with Docker Compose
         run: |
           echo "Starting MinIO service..."
-          docker compose -f docker/compose.dev.yml up -d minio minio-init
+          docker compose -f docker/compose.dev.yml --profile ci up -d minio minio-init 2>&1 || true
           echo "Services started, waiting for MinIO to be ready..."
 
       - name: Wait for MinIO to be ready
@@ -103,7 +103,8 @@ jobs:
 
       - name: Stop services
         if: always()
-        run: docker compose -f docker/compose.dev.yml down
+        continue-on-error: true
+        run: docker compose -f docker/compose.dev.yml down --remove-orphans 2>&1 || true
 
       - name: Test Results Summary
         if: always()
