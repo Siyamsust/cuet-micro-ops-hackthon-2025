@@ -1,6 +1,19 @@
 name: delineate
 
 services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend.prod
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:3000
+      - VITE_JAEGER_UI_URL=http://localhost:16686
+    depends_on:
+      - delineate-app
+    restart: unless-stopped
+
   delineate-app:
     build:
       context: ..

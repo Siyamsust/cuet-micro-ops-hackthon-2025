@@ -8,6 +8,10 @@ RUN npm install
 
 COPY . .
 
+# Create empty .env if not exists (env vars come from docker-compose)
+RUN touch .env
+
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+# Run without --env-file since env vars come from docker-compose
+CMD ["node", "--experimental-transform-types", "--watch", "src/index.ts"]
