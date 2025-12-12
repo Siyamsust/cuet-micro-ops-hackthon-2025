@@ -53,11 +53,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Start services with Docker Compose
+      - name: Create MinIO network
+        run: docker network create minio-net || true
+
+      - name: Start MinIO service
         run: |
-          echo "Starting MinIO service..."
-          docker compose -f docker/compose.dev.yml --profile ci up -d minio minio-init 2>&1 || true
-          echo "Services started, waiting for MinIO to be ready..."
+          docker run -d \
+            --name minio-server \
+            --network minio-net \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio server /data --console-address ":9001"
 
       - name: Wait for MinIO to be ready
         run: |
@@ -76,9 +84,17 @@ jobs:
           done
           if [ $attempt -eq $max_attempts ]; then
             echo "❌ MinIO failed to become ready"
-            docker compose -f docker/compose.dev.yml logs minio
+            docker logs minio-server || true
             exit 1
           fi
+
+      - name: Create MinIO bucket
+        run: |
+          docker run --rm \
+            --network minio-net \
+            -e MC_HOST_myminio=http://minioadmin:minioadmin@minio-server:9000 \
+            minio/mc:latest \
+            mb myminio/downloads || echo "Bucket may already exist"
 
       - name: Run E2E tests
         run: npm run test:e2e
@@ -103,8 +119,7 @@ jobs:
 
       - name: Stop services
         if: always()
-        continue-on-error: true
-        run: docker compose -f docker/compose.dev.yml down --remove-orphans 2>&1 || true
+        run: docker stop minio-server && docker rm minio-server || true
 
       - name: Test Results Summary
         if: always()

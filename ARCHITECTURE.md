@@ -79,30 +79,30 @@ sequenceDiagram
 
     Note over Client: Client Request (Fast)
     Client->>API: POST /v1/download/initiate<br/>{"file_id": 70000}
-    
+
     API->>API: Generate jobId (UUID)
     API->>DB: Create job record<br/>(status: "queued")
     API->>Queue: Enqueue job to Redis/Bull
     API-->>Client: Return immediately<br/>{"jobId": "abc123", "status": "queued"}<br/>(<100ms response ✓)
-    
+
     Note over Client: No timeout!<br/>User gets instant feedback
-    
+
     Client->>WS: Open WebSocket<br/>WS /v1/download/subscribe/abc123
-    
+
     Worker->>Queue: Dequeue job from Redis
     Worker->>DB: Update status = "processing"
-    
+
     Note over Worker,S3: Download file (10-120s delay)
     Worker->>S3: Download file
     Worker->>WS: Emit progress: 25% complete
     Worker->>WS: Emit progress: 50% complete
     Worker->>WS: Emit progress: 75% complete
     Worker->>S3: Upload to S3 (100% complete)
-    
+
     Worker->>S3: Generate presigned URL
     Worker->>DB: Update status = "completed"<br/>downloadUrl, expiresAt
     Worker->>WS: Emit "completed" event<br/>with download link
-    
+
     WS-->>Client: Progress updates via WebSocket
     Note over Client: Shows progress bar<br/>Enables download button<br/>User clicks to download
 ```
