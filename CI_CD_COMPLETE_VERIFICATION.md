@@ -38,6 +38,7 @@ Production Ready:           YES
 ### Pipeline Stages ✅
 
 #### ✅ Stage 1: Lint & Format Check
+
 ```
 Purpose:  Code quality and formatting validation
 Command:  npm run lint && npm run format:check
@@ -47,6 +48,7 @@ Features: Fast feedback, catches style issues early
 ```
 
 #### ✅ Stage 2: E2E Tests
+
 ```
 Purpose:  Comprehensive API testing
 Command:  npm run test:e2e
@@ -58,6 +60,7 @@ Features: Real service integration, automatic setup
 ```
 
 #### ✅ Stage 3: Docker Build
+
 ```
 Purpose:  Container image creation
 Dockerfile: docker/Dockerfile.prod
@@ -67,6 +70,7 @@ Features: Layer caching, multi-platform support
 ```
 
 #### ✅ Stage 4: Pipeline Status
+
 ```
 Purpose:  Final result reporting
 Status:   Reports all stage results
@@ -82,8 +86,8 @@ Features: GitHub Actions integration, clear reporting
 on:
   push:
     branches: [main, master]
-    
-# ✅ Pull Request Triggers
+
+  # ✅ Pull Request Triggers
   pull_request:
     branches: [main, master]
 ```
@@ -97,7 +101,7 @@ on:
 ```yaml
 - name: Run ESLint
   run: npm run lint
-  
+
 - name: Check code formatting
   run: npm run format:check
 ```
@@ -111,7 +115,7 @@ on:
 ```yaml
 - name: Run E2E tests
   run: npm run test:e2e
-  
+
 Services:
   - MinIO (S3-compatible)
   - Auto-bucket creation
@@ -119,6 +123,7 @@ Services:
 ```
 
 **Test Results (Just Verified):**
+
 ```
 ═════════════════════════════════════════
         E2E TEST SUMMARY
@@ -164,6 +169,7 @@ cache-to: type=gha,mode=max
 ```
 
 **Benefits:**
+
 - npm install: ~30 seconds (cached)
 - Docker build: ~45 seconds (cached)
 - Speed improvement: ~50%
@@ -188,6 +194,7 @@ needs: test               # Build depends on Test
 ### Clear Status Reporting ✅
 
 #### Test Results Summary
+
 ```yaml
 - name: Test Results Summary
   if: always()
@@ -199,6 +206,7 @@ needs: test               # Build depends on Test
 ```
 
 #### Docker Build Summary
+
 ```yaml
 - name: Build Summary
   if: always()
@@ -210,6 +218,7 @@ needs: test               # Build depends on Test
 ```
 
 #### Pipeline Status Table
+
 ```yaml
 - name: Pipeline Summary
   run: |
@@ -227,6 +236,7 @@ needs: test               # Build depends on Test
 ## 📖 Documentation in README.md ✅
 
 ### CI Badge
+
 ```markdown
 [![CI](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml/badge.svg)](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml)
 ```
@@ -235,14 +245,18 @@ needs: test               # Build depends on Test
 **Status:** ✅ Implemented
 
 ### CI/CD Section
+
 ```markdown
 ## CI/CD Pipeline
 
 This project uses **GitHub Actions** for continuous integration and deployment...
 
 ### Pipeline Stages
+
 ### Running Tests Locally
+
 ### CI/CD Configuration
+
 ### For Contributors
 ```
 
@@ -254,11 +268,13 @@ This project uses **GitHub Actions** for continuous integration and deployment..
 ## 🧪 Live Test Verification
 
 **Test Command Executed:**
+
 ```bash
 npm run test:e2e
 ```
 
 **Result:**
+
 ```
 ═════════════════════════════════════════
         TEST SUMMARY (LIVE RESULTS)
@@ -287,23 +303,26 @@ All tests passed! ✅
 ## 🔍 Detailed Configuration Verification
 
 ### ✅ Environment & Node Version
+
 ```yaml
 env:
   NODE_VERSION: "24"
 ```
+
 - Matches project requirement (Node.js >= 24.10.0)
 
 ### ✅ Job Configuration
+
 ```yaml
 lint:
   runs-on: ubuntu-24.04
   timeout-minutes: 10
-  
+
 test:
   runs-on: ubuntu-24.04
   needs: lint
   timeout-minutes: 15
-  
+
 build:
   runs-on: ubuntu-24.04
   needs: test
@@ -313,6 +332,7 @@ build:
 All timeouts appropriate for each stage.
 
 ### ✅ Service Configuration
+
 ```yaml
 services:
   minio:
@@ -329,6 +349,7 @@ services:
 Health checks ensure service is ready before tests.
 
 ### ✅ Environment Variables for Testing
+
 ```yaml
 NODE_ENV: test
 PORT: 3000
@@ -400,17 +421,20 @@ Push/PR Event
 ## 🎊 Bonus Features Implemented
 
 ### ✅ Advanced Caching
+
 - npm packages cached per Node version
 - Docker layer caching with GHA cache
 - Significant speed improvement
 
 ### ✅ Multi-Platform Support
+
 ```yaml
 platforms: linux/amd64
 # Can be extended: linux/amd64,linux/arm64
 ```
 
 ### ✅ Health Checks
+
 ```yaml
 healthcheck:
   test: curl -f http://localhost:9000/minio/health/live
@@ -420,11 +444,13 @@ healthcheck:
 ```
 
 ### ✅ Automatic Bucket Creation
+
 ```bash
 ./mc mb myminio/downloads || echo "Bucket may already exist"
 ```
 
 ### ✅ GitHub Actions Integration
+
 - Status badges in README
 - Workflow visualization
 - Detailed logs available
@@ -435,6 +461,7 @@ healthcheck:
 ## 🚀 How to Use the Pipeline
 
 ### Automatic Triggering
+
 ```bash
 # Push to main or master
 git push origin main
@@ -444,6 +471,7 @@ git push origin main
 ```
 
 ### Check Status
+
 1. **On GitHub:**
    - Go to Actions tab
    - Click on workflow run
@@ -458,6 +486,7 @@ git push origin main
    - Can't merge if failing
 
 ### Local Testing Before Push
+
 ```bash
 # Run linting locally
 npm run lint

@@ -545,22 +545,26 @@ The CI pipeline consists of four main stages:
 ```
 
 #### 1. Lint & Format Check
+
 - Runs ESLint to check code quality
 - Verifies code formatting with Prettier
 - **Fails fast** if any linting or formatting issues are found
 
 #### 2. E2E Tests
+
 - Sets up MinIO S3-compatible storage service
 - Creates required buckets
 - Runs comprehensive end-to-end tests
 - Validates all API endpoints and functionality
 
 #### 3. Docker Build
+
 - Builds production Docker image
 - Uses Docker Buildx with GitHub Actions cache
 - Validates Dockerfile configuration
 
 #### 4. Pipeline Status
+
 - Aggregates results from all stages
 - Provides summary report
 - Fails if any stage fails
@@ -598,6 +602,7 @@ The pipeline configuration is located at `.github/workflows/ci.yml`. Key feature
 ### For Contributors
 
 1. **Before pushing code:**
+
    ```bash
    npm run lint          # Fix any linting issues
    npm run format        # Format your code

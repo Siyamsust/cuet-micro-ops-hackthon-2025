@@ -10,6 +10,7 @@
 
 - [x] **Trigger on push to `main`/`master` branch**
   - Configured in `.github/workflows/ci.yml` line 5-6
+
   ```yaml
   on:
     push:
@@ -18,13 +19,15 @@
 
 - [x] **Trigger on pull requests**
   - Configured in `.github/workflows/ci.yml` line 7-8
+
   ```yaml
-    pull_request:
-      branches: [main, master]
+  pull_request:
+    branches: [main, master]
   ```
 
 - [x] **Run linting (ESLint)**
   - Implemented in Lint job, line 35
+
   ```yaml
   - name: Run ESLint
     run: npm run lint
@@ -32,6 +35,7 @@
 
 - [x] **Run format check (Prettier)**
   - Implemented in Lint job, line 38-40
+
   ```yaml
   - name: Check code formatting
     run: npm run format:check
@@ -51,10 +55,13 @@
 
 - [x] **Cache dependencies for faster builds**
   - Node modules caching: Line 22, 68
+
   ```yaml
   cache: "npm"
   ```
+
   - Docker layer caching: Line 159-160
+
   ```yaml
   cache-from: type=gha
   cache-to: type=gha,mode=max
@@ -115,12 +122,14 @@
 ### File: `.github/workflows/ci.yml`
 
 **Configuration:**
+
 - Name: `CI`
 - Runs on: `ubuntu-24.04`
 - Node Version: `24` (from env variable)
 - Timeout per job: 10-20 minutes
 
 **Environment Variables:**
+
 ```yaml
 NODE_VERSION: "24"
 ```
@@ -128,11 +137,13 @@ NODE_VERSION: "24"
 **Jobs:**
 
 #### Job 1: Lint & Format Check
+
 ```yaml
 name: Lint & Format Check
 runs-on: ubuntu-24.04
 timeout-minutes: 10
 ```
+
 - ✅ Checks out code
 - ✅ Sets up Node.js with cache
 - ✅ Runs ESLint
@@ -140,12 +151,14 @@ timeout-minutes: 10
 - ✅ Fails fast on errors
 
 #### Job 2: E2E Tests
+
 ```yaml
 name: E2E Tests
 runs-on: ubuntu-24.04
-needs: lint  # Depends on lint job
+needs: lint # Depends on lint job
 timeout-minutes: 15
 ```
+
 - ✅ Uses MinIO service (S3-compatible)
 - ✅ Health checks on MinIO
 - ✅ Sets up test bucket automatically
@@ -154,6 +167,7 @@ timeout-minutes: 15
 - ✅ Reports test results
 
 **Services:**
+
 ```yaml
 services:
   minio:
@@ -165,12 +179,14 @@ services:
 ```
 
 #### Job 3: Build Docker Image
+
 ```yaml
 name: Build Docker Image
 runs-on: ubuntu-24.04
-needs: test  # Depends on test job
+needs: test # Depends on test job
 timeout-minutes: 20
 ```
+
 - ✅ Sets up Docker Buildx
 - ✅ Builds Dockerfile.prod
 - ✅ Caches layers with GitHub Actions Cache
@@ -178,12 +194,14 @@ timeout-minutes: 20
 - ✅ Tags with latest and SHA
 
 #### Job 4: CI Pipeline Status
+
 ```yaml
 name: CI Pipeline Status
 runs-on: ubuntu-24.04
 needs: [lint, test, build]
 if: always()
 ```
+
 - ✅ Reports pipeline status
 - ✅ Shows stage results in table format
 - ✅ Fails if any stage failed
@@ -209,6 +227,7 @@ Success Rate:   100%
 ```
 
 **Test Categories All Passing:**
+
 - ✅ Root Endpoint Tests
 - ✅ Health Checks & Storage Status
 - ✅ Security Headers (7 tests)
@@ -223,21 +242,26 @@ Success Rate:   100%
 ## 📖 Documentation - README.md
 
 ### CI/CD Badge
+
 ✅ **Status badge in README**
+
 ```markdown
 [![CI](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml/badge.svg)](https://github.com/Siyamsust/cuet-micro-ops-hackthon-2025/actions/workflows/ci.yml)
 ```
 
 ### CI/CD Section in README
+
 ✅ **Complete CI/CD documentation at line 548**
 
 The README includes:
+
 1. **CI/CD Pipeline Section**
    - Overview of pipeline architecture
    - 4-stage workflow explanation
    - Detailed job descriptions
 
 2. **Running Tests Locally Section**
+
    ```bash
    npm run lint          # Run linting
    npm run format:check  # Check formatting
@@ -260,23 +284,27 @@ The README includes:
 ## ✨ Bonus Features Implemented
 
 ### 1. ✅ Caching Strategy
+
 - **npm cache**: Node modules cached for faster builds
 - **Docker cache**: Layer caching with GitHub Actions GHA cache
 - **Buildx cache**: Multi-platform build cache
 
 ### 2. ✅ Comprehensive Status Reporting
+
 - Test results summary
 - Docker build summary
 - Final CI pipeline status with table
 - Links to detailed logs
 
 ### 3. ✅ MinIO Service Integration
+
 - Automatic health checks
 - Bucket creation on startup
 - Environment variable configuration
 - Service readiness validation
 
 ### 4. ✅ Environment Configuration
+
 ```bash
 # Test-specific environment
 NODE_ENV: test
@@ -289,6 +317,7 @@ S3_BUCKET_NAME: downloads
 ```
 
 ### 5. ✅ Fail-Fast Strategy
+
 - Lint failures stop immediately
 - Test failures stop Docker build
 - No wasted resources
@@ -366,21 +395,21 @@ S3_BUCKET_NAME: downloads
    - Checks formatting (Prettier)
    - If errors: ❌ Pipeline stops
    - If success: ✅ Continue to Test
-   ↓
+     ↓
 3. **Test job starts** (only if Lint passed)
    - Starts MinIO service
    - Creates bucket
    - Runs 29 E2E tests
    - If failures: ❌ Pipeline stops
    - If success: ✅ Continue to Build
-   ↓
+     ↓
 4. **Build job starts** (only if Tests passed)
    - Builds Docker image
    - Uses cached layers
    - Tags with latest and commit SHA
    - If error: ❌ Pipeline stops
    - If success: ✅ Continue to Status
-   ↓
+     ↓
 5. **Status job reports** final results
    - Shows all stage results
    - Updates GitHub UI
@@ -417,18 +446,21 @@ S3_BUCKET_NAME: downloads
 ### Customization Options:
 
 **Change Node Version:**
+
 ```yaml
 env:
-  NODE_VERSION: "24"  # Change to any version
+  NODE_VERSION: "24" # Change to any version
 ```
 
 **Add New Test Stages:**
+
 ```yaml
 - name: My Custom Test
   run: npm run my-test
 ```
 
 **Add Notification (Bonus):**
+
 ```yaml
 - name: Slack Notification
   uses: slackapi/slack-github-action@v1
@@ -440,6 +472,7 @@ env:
 ```
 
 **Add Security Scanning (Bonus):**
+
 ```yaml
 - name: CodeQL Analysis
   uses: github/codeql-action/init@v2
@@ -464,6 +497,7 @@ env:
 **Challenge 3: CI/CD Pipeline Setup is FULLY IMPLEMENTED and TESTED**
 
 The pipeline:
+
 - ✅ Automatically runs on every push
 - ✅ Tests all code with E2E tests
 - ✅ Builds Docker images

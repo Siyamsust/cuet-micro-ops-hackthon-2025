@@ -7,6 +7,7 @@ This document outlines a **complete architecture design** for integrating the De
 **Chosen Pattern:** Hybrid Approach combining **Polling + WebSocket** with asynchronous background processing
 
 **Key Benefits:**
+
 - Immediate response to client (no connection timeout)
 - Real-time progress updates via WebSocket
 - Fallback polling for simple clients
@@ -148,14 +149,15 @@ Client receives updates via WebSocket
 
 ### Why This Pattern?
 
-| Pattern | Pros | Cons | Use Case |
-|---------|------|------|----------|
-| **Polling** | Simple, stateless | High latency, increased load | Mobile/legacy clients |
-| **WebSocket** | Real-time, efficient | Complex, requires statefull | Modern web apps |
-| **Webhook** | Decoupled, reliable | Complex to implement | 3rd party integrations |
-| **Async Queue** | Scalable, resilient | Needs infrastructure | Long-running tasks ✓ |
+| Pattern         | Pros                 | Cons                         | Use Case               |
+| --------------- | -------------------- | ---------------------------- | ---------------------- |
+| **Polling**     | Simple, stateless    | High latency, increased load | Mobile/legacy clients  |
+| **WebSocket**   | Real-time, efficient | Complex, requires statefull  | Modern web apps        |
+| **Webhook**     | Decoupled, reliable  | Complex to implement         | 3rd party integrations |
+| **Async Queue** | Scalable, resilient  | Needs infrastructure         | Long-running tasks ✓   |
 
 **Our Choice:** Combine all three for maximum flexibility:
+
 - **Quick response** via immediate job acknowledgment (no timeout)
 - **Real-time updates** via WebSocket (modern UX)
 - **Polling fallback** via status endpoint (mobile/offline)
@@ -317,14 +319,14 @@ CREATE TABLE presigned_urls (
 ### 3.3 Background Job Processing (Bull/Redis)
 
 ```typescript
-import Bull from 'bull';
-import { Redis } from 'ioredis';
+import Bull from "bull";
+import { Redis } from "ioredis";
 
 // Initialize Bull queue
-const downloadQueue = new Bull('downloads', {
+const downloadQueue = new Bull("downloads", {
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
+    host: process.env.REDIS_HOST || "localhost",
+    port: parseInt(process.env.REDIS_PORT || "6379"),
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
   },
@@ -346,7 +348,7 @@ downloadQueue.process(
 
     try {
       // Update job status to processing
-      await db.updateJobStatus(jobId, 'processing', { startedAt: new Date() });
+      await db.updateJobStatus(jobId, "processing", { startedAt: new Date() });
 
       let downloadedCount = 0;
       const downloadUrls: Record<number, string> = {};
@@ -357,12 +359,14 @@ downloadQueue.process(
           job.progress({
             completedFiles: downloadedCount,
             totalFiles: fileIds.length,
-            percentComplete: Math.round((downloadedCount / fileIds.length) * 100),
+            percentComplete: Math.round(
+              (downloadedCount / fileIds.length) * 100,
+            ),
             currentFileId: fileId,
           });
 
           // Update progress in DB
-          await db.updateFileProgress(jobId, fileId, 'downloading');
+          await db.updateFileProgress(jobId, fileId, "downloading");
 
           // Simulate download delay
           await sleep(getRandomDelay());
@@ -376,7 +380,7 @@ downloadQueue.process(
           });
 
           // Generate presigned URL (valid for 24 hours)
-          const presignedUrl = await s3Client.getSignedUrlPromise('getObject', {
+          const presignedUrl = await s3Client.getSignedUrlPromise("getObject", {
             Bucket: process.env.S3_BUCKET_NAME,
             Key: s3Key,
             Expires: 86400, // 24 hours
@@ -385,33 +389,34 @@ downloadQueue.process(
           downloadUrls[fileId] = presignedUrl;
           downloadedCount++;
 
-          await db.updateFileProgress(jobId, fileId, 'stored');
+          await db.updateFileProgress(jobId, fileId, "stored");
 
           // Emit progress via WebSocket to connected clients
           await websocketManager.broadcastToJob(jobId, {
-            type: 'progress',
+            type: "progress",
             progress: {
               completedFiles: downloadedCount,
               totalFiles: fileIds.length,
-              percentComplete: Math.round((downloadedCount / fileIds.length) * 100),
+              percentComplete: Math.round(
+                (downloadedCount / fileIds.length) * 100,
+              ),
             },
           });
-
         } catch (error) {
           console.error(`Failed to download file ${fileId}:`, error);
-          await db.updateFileProgress(jobId, fileId, 'failed', error.message);
+          await db.updateFileProgress(jobId, fileId, "failed", error.message);
         }
       }
 
       // Job completed
-      await db.updateJobStatus(jobId, 'completed', {
+      await db.updateJobStatus(jobId, "completed", {
         completedAt: new Date(),
         downloadUrls,
       });
 
       // Emit completion event
       await websocketManager.broadcastToJob(jobId, {
-        type: 'completed',
+        type: "completed",
         downloadUrls,
         expiresAt: new Date(Date.now() + 86400000),
       });
@@ -420,11 +425,11 @@ downloadQueue.process(
       if (callbackUrl) {
         try {
           await fetch(callbackUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               jobId,
-              status: 'completed',
+              status: "completed",
               downloadUrls,
             }),
           });
@@ -434,25 +439,24 @@ downloadQueue.process(
       }
 
       return downloadUrls;
-
     } catch (error) {
       console.error(`Job ${jobId} failed:`, error);
-      await db.updateJobStatus(jobId, 'failed', {
+      await db.updateJobStatus(jobId, "failed", {
         completedAt: new Date(),
         errorMessage: error.message,
       });
 
       throw error;
     }
-  }
+  },
 );
 
 // Monitor queue events
-downloadQueue.on('completed', (job) => {
+downloadQueue.on("completed", (job) => {
   console.log(`Job ${job.id} completed`);
 });
 
-downloadQueue.on('failed', (job, err) => {
+downloadQueue.on("failed", (job, err) => {
   console.error(`Job ${job.id} failed:`, err.message);
 });
 
@@ -461,17 +465,17 @@ export async function enqueueDownload(
   jobId: string,
   userId: string,
   fileIds: number[],
-  callbackUrl?: string
+  callbackUrl?: string,
 ) {
   await downloadQueue.add(
     { jobId, userId, fileIds, callbackUrl },
     {
       jobId, // Use jobId as queue job ID for easy lookup
-      priority: 'normal',
+      priority: "normal",
       attempts: 3,
-      backoff: { type: 'exponential', delay: 2000 },
+      backoff: { type: "exponential", delay: 2000 },
       removeOnComplete: true,
-    }
+    },
   );
 }
 ```
@@ -482,7 +486,7 @@ export async function enqueueDownload(
 // Automatic Retry Strategy
 const retryConfig = {
   maxRetries: 3,
-  backoffType: 'exponential', // exponential backoff
+  backoffType: "exponential", // exponential backoff
   initialDelay: 1000, // 1 second
   maxDelay: 30000, // 30 seconds
 };
@@ -490,15 +494,18 @@ const retryConfig = {
 // Error Handling in API
 app.openapi(downloadInitiateRoute, async (c) => {
   try {
-    const { file_ids, callback_url } = c.req.valid('json');
-    const userId = c.get('userId') as string;
+    const { file_ids, callback_url } = c.req.valid("json");
+    const userId = c.get("userId") as string;
 
     // Validate file IDs
     if (file_ids.length > 1000) {
-      return c.json({
-        error: 'Too many files',
-        message: 'Maximum 1000 files per job',
-      }, 400);
+      return c.json(
+        {
+          error: "Too many files",
+          message: "Maximum 1000 files per job",
+        },
+        400,
+      );
     }
 
     // Create job in DB
@@ -507,7 +514,7 @@ app.openapi(downloadInitiateRoute, async (c) => {
       id: jobId,
       userId,
       fileIds: file_ids,
-      status: 'queued',
+      status: "queued",
       callbackUrl: callback_url,
     });
 
@@ -515,40 +522,45 @@ app.openapi(downloadInitiateRoute, async (c) => {
     await enqueueDownload(jobId, userId, file_ids, callback_url);
 
     // Return immediately
-    return c.json({
-      jobId,
-      status: 'queued',
-      totalFileIds: file_ids.length,
-    }, 202); // 202 Accepted
-
+    return c.json(
+      {
+        jobId,
+        status: "queued",
+        totalFileIds: file_ids.length,
+      },
+      202,
+    ); // 202 Accepted
   } catch (error) {
-    c.get('sentry').captureException(error);
-    return c.json({
-      error: 'Failed to initiate download',
-      message: error.message,
-      requestId: c.get('requestId'),
-    }, 500);
+    c.get("sentry").captureException(error);
+    return c.json(
+      {
+        error: "Failed to initiate download",
+        message: error.message,
+        requestId: c.get("requestId"),
+      },
+      500,
+    );
   }
 });
 
 // Error Handling in Background Worker
-downloadQueue.on('failed', async (job, err) => {
+downloadQueue.on("failed", async (job, err) => {
   const { jobId } = job.data;
-  
+
   // Log to Sentry
   Sentry.captureException(err, {
-    tags: { jobId, jobType: 'download' },
+    tags: { jobId, jobType: "download" },
   });
 
   // Notify user via webhook
   try {
     await notifyUser(jobId, {
-      status: 'failed',
+      status: "failed",
       error: err.message,
       retryable: job.attemptsMade < retryConfig.maxRetries,
     });
   } catch (error) {
-    console.error('Failed to notify user:', error);
+    console.error("Failed to notify user:", error);
   }
 });
 ```
@@ -566,8 +578,8 @@ const downloadInitiateRoute = createRoute({
 });
 
 // 3. WebSocket Connection Timeout
-app.ws('/v1/download/subscribe/:jobId', (ws, c) => {
-  const jobId = c.req.param('jobId');
+app.ws("/v1/download/subscribe/:jobId", (ws, c) => {
+  const jobId = c.req.param("jobId");
   let heartbeatInterval: NodeJS.Timer;
 
   ws.onOpen(() => {
@@ -576,12 +588,12 @@ app.ws('/v1/download/subscribe/:jobId', (ws, c) => {
 
     // Send heartbeat every 30 seconds
     heartbeatInterval = setInterval(() => {
-      ws.send(JSON.stringify({ type: 'heartbeat' }));
+      ws.send(JSON.stringify({ type: "heartbeat" }));
     }, 30000);
 
     // Connection timeout: 1 hour (3600 seconds)
     const timeout = setTimeout(() => {
-      ws.close(1000, 'Connection timeout');
+      ws.close(1000, "Connection timeout");
     }, 3600000);
 
     ws.onClose(() => clearTimeout(timeout));
@@ -872,11 +884,11 @@ resource "aws_lb" "main" {
 ```typescript
 // hooks/useDownload.ts
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from "react";
 
 interface DownloadJob {
   jobId: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: "queued" | "processing" | "completed" | "failed" | "cancelled";
   progress?: {
     completedFiles: number;
     totalFiles: number;
@@ -900,9 +912,9 @@ export const useDownload = (apiUrl: string) => {
       try {
         // Step 1: Send request to initiate download
         const response = await fetch(`${apiUrl}/v1/download/initiate`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             file_ids: fileIds,
@@ -911,7 +923,9 @@ export const useDownload = (apiUrl: string) => {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to initiate download: ${response.statusText}`);
+          throw new Error(
+            `Failed to initiate download: ${response.statusText}`,
+          );
         }
 
         // Step 2: Get job info immediately (202 response)
@@ -930,15 +944,14 @@ export const useDownload = (apiUrl: string) => {
 
         // Step 3: Return jobId for further processing
         return data.jobId;
-
       } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
         setError(errorMsg);
         setLoading(false);
         throw err;
       }
     },
-    [apiUrl]
+    [apiUrl],
   );
 
   return { job, loading, error, initiate };
@@ -950,14 +963,14 @@ export const useDownload = (apiUrl: string) => {
 ```typescript
 // hooks/useDownloadProgress.ts
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef } from "react";
 
 export const useDownloadProgress = (
   apiUrl: string,
   jobId: string | null,
   onProgress: (job: DownloadJob) => void,
   onCompleted: (downloadUrls: Record<number, string>) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
 ) => {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -966,14 +979,12 @@ export const useDownloadProgress = (
     if (!jobId) return;
 
     // Convert http/https to ws/wss
-    const wsUrl = apiUrl
-      .replace(/^http:/, 'ws:')
-      .replace(/^https:/, 'wss:');
+    const wsUrl = apiUrl.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
 
     const ws = new WebSocket(`${wsUrl}/v1/download/subscribe/${jobId}`);
 
     ws.onopen = () => {
-      console.log('[WebSocket] Connected');
+      console.log("[WebSocket] Connected");
       reconnectAttemptsRef.current = 0;
     };
 
@@ -981,36 +992,36 @@ export const useDownloadProgress = (
       const message = JSON.parse(event.data);
 
       switch (message.type) {
-        case 'progress':
+        case "progress":
           onProgress({
             jobId,
-            status: 'processing',
+            status: "processing",
             progress: message.progress,
           });
           break;
 
-        case 'completed':
+        case "completed":
           onCompleted(message.downloadUrls);
           break;
 
-        case 'error':
+        case "error":
           onError(message.error);
           break;
 
-        case 'heartbeat':
+        case "heartbeat":
           // Respond to keep connection alive
-          ws.send(JSON.stringify({ type: 'pong' }));
+          ws.send(JSON.stringify({ type: "pong" }));
           break;
       }
     };
 
     ws.onerror = (event) => {
-      console.error('[WebSocket] Error:', event);
-      onError('WebSocket connection error');
+      console.error("[WebSocket] Error:", event);
+      onError("WebSocket connection error");
     };
 
     ws.onclose = () => {
-      console.log('[WebSocket] Disconnected');
+      console.log("[WebSocket] Disconnected");
 
       // Attempt to reconnect (max 5 attempts)
       if (reconnectAttemptsRef.current < 5) {
@@ -1160,7 +1171,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 export async function downloadWithRetry(
   url: string,
-  config = DEFAULT_RETRY_CONFIG
+  config = DEFAULT_RETRY_CONFIG,
 ): Promise<Response> {
   let lastError: Error | null = null;
 
@@ -1177,7 +1188,6 @@ export async function downloadWithRetry(
       }
 
       return response;
-
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -1185,7 +1195,7 @@ export async function downloadWithRetry(
         // Exponential backoff
         const delay = Math.min(
           config.baseDelay * Math.pow(2, attempt),
-          config.maxDelay
+          config.maxDelay,
         );
 
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -1193,7 +1203,7 @@ export async function downloadWithRetry(
     }
   }
 
-  throw lastError || new Error('Download failed after max retries');
+  throw lastError || new Error("Download failed after max retries");
 }
 ```
 
@@ -1204,10 +1214,13 @@ export async function downloadWithRetry(
 
 export const useDownloadPersistence = (jobId: string) => {
   // Save job state to localStorage
-  const saveJobState = useCallback((job: DownloadJob) => {
-    const key = `download_job_${jobId}`;
-    localStorage.setItem(key, JSON.stringify(job));
-  }, [jobId]);
+  const saveJobState = useCallback(
+    (job: DownloadJob) => {
+      const key = `download_job_${jobId}`;
+      localStorage.setItem(key, JSON.stringify(job));
+    },
+    [jobId],
+  );
 
   // Restore job state from localStorage
   const restoreJobState = useCallback(() => {
@@ -1222,12 +1235,12 @@ export const useDownloadPersistence = (jobId: string) => {
       try {
         const response = await fetch(`${apiUrl}/v1/download/status/${jobId}`);
         const data = await response.json();
-        return data.status !== 'completed' && data.status !== 'failed';
+        return data.status !== "completed" && data.status !== "failed";
       } catch {
         return false;
       }
     },
-    [jobId]
+    [jobId],
   );
 
   return { saveJobState, restoreJobState, isDownloadActive };
@@ -1278,13 +1291,13 @@ export const useDownloadPersistence = (jobId: string) => {
 
 ## 7. Cost Optimization
 
-| Component | Cost Factor | Optimization |
-|-----------|------------|----------------|
-| **Redis** | Memory usage, throughput | Use RDS cache tier / Elasticache |
-| **Database** | Queries, storage | Index job_status, created_at; Archive old jobs |
-| **S3 Storage** | Gigabytes stored | Set expiration on presigned URLs; Delete old files |
-| **Network** | Bandwidth out | Use CloudFront; Presigned URLs for direct downloads |
-| **Compute** | CPU usage | Horizontal scaling; Worker optimization |
+| Component      | Cost Factor              | Optimization                                        |
+| -------------- | ------------------------ | --------------------------------------------------- |
+| **Redis**      | Memory usage, throughput | Use RDS cache tier / Elasticache                    |
+| **Database**   | Queries, storage         | Index job_status, created_at; Archive old jobs      |
+| **S3 Storage** | Gigabytes stored         | Set expiration on presigned URLs; Delete old files  |
+| **Network**    | Bandwidth out            | Use CloudFront; Presigned URLs for direct downloads |
+| **Compute**    | CPU usage                | Horizontal scaling; Worker optimization             |
 
 ---
 

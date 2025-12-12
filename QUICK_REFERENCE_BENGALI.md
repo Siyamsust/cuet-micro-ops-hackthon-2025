@@ -14,6 +14,7 @@
 ## 🎯 চার চ্যালেঞ্জের স্ট্যাটাস
 
 ### চ্যালেঞ্জ ১: S3 স্টোরেজ ইন্টিগ্রেশন (15 পয়েন্ট)
+
 ```
 ✅ সম্পূর্ণ সম্পন্ন
 
@@ -35,6 +36,7 @@ GET /health → {"status":"healthy","checks":{"storage":"ok"}}
 ---
 
 ### চ্যালেঞ্জ २: দীর্ঘ-চলমান ডাউনলোড আর্কিটেকচার (15 পয়েন্ট)
+
 ```
 ✅ সম্পূর্ণ সম্পন্ন
 
@@ -66,6 +68,7 @@ GET /health → {"status":"healthy","checks":{"storage":"ok"}}
 ---
 
 ### চ্যালেঞ্জ ३: CI/CD পাইপলাইন (10 পয়েন্ট)
+
 ```
 ✅ সম্পূর্ণ সম্পন্ন
 
@@ -98,6 +101,7 @@ GET /health → {"status":"healthy","checks":{"storage":"ok"}}
 ---
 
 ### চ্যালেঞ্জ ४: পর্যবেক্ষণ (10 পয়েন্ট - বোনাস)
+
 ```
 ✅ সম্পূর্ণ সম্পন্ন
 
@@ -127,31 +131,37 @@ curl "http://localhost:3000/v1/download/check?sentry_test=true" \
 ## 🚀 দ্রুত শুরু করুন
 
 ### ধাপ ১: ডিপেন্ডেন্সি ইনস্টল করুন
+
 ```bash
 npm install
 ```
 
 ### ধাপ २: পরিবেশ ফাইল তৈরি করুন
+
 ```bash
 cp .env.example .env
 ```
 
 ### ধাপ ३: ডেভেলপমেন্ট সার্ভার চালান
+
 ```bash
 npm run dev
 ```
 
 **এক্সেস করুন:**
+
 - API: http://localhost:3000
 - ডকুমেন্টেশন: http://localhost:3000/docs
 - OpenAPI: http://localhost:3000/openapi
 
 ### ধাপ ४: পরীক্ষা চালান
+
 ```bash
 npm run test:e2e
 ```
 
 **ফলাফল:**
+
 ```
 মোট: 29টি
 পাস: 29টি ✅
@@ -164,11 +174,13 @@ npm run test:e2e
 ## 🐳 Docker দিয়ে চালান
 
 ### সম্পূর্ণ স্ট্যাক
+
 ```bash
 npm run docker:dev
 ```
 
 **এখন উপলব্ধ:**
+
 - API: http://localhost:3000
 - MinIO UI: http://localhost:9001 (minioadmin:minioadmin)
 - Jaeger: http://localhost:16686
@@ -178,26 +190,28 @@ npm run docker:dev
 
 ## 📚 গুরুত্বপূর্ণ ফাইলগুলি
 
-| ফাইল | উদ্দেশ্য |
-|------|---------|
-| `ARCHITECTURE.md` | ⭐ চ্যালেঞ্জ २এর সম্পূর্ণ সমাধান |
-| `README.md` | প্রজেক্ট ওভারভিউ |
-| `IMPLEMENTATION_SUMMARY.md` | সমস্ত বাস্তবায়নের সারাংশ |
-| `FINAL_STATUS.md` | চূড়ান্ত স্ট্যাটাস রিপোর্ট |
-| `src/index.ts` | সম্পূর্ণ API বাস্তবায়ন |
-| `docker/compose.dev.yml` | ডেভেলপমেন্ট স্ট্যাক |
-| `.github/workflows/ci.yml` | CI/CD পাইপলাইন |
+| ফাইল                        | উদ্দেশ্য                         |
+| --------------------------- | -------------------------------- |
+| `ARCHITECTURE.md`           | ⭐ চ্যালেঞ্জ २এর সম্পূর্ণ সমাধান |
+| `README.md`                 | প্রজেক্ট ওভারভিউ                 |
+| `IMPLEMENTATION_SUMMARY.md` | সমস্ত বাস্তবায়নের সারাংশ        |
+| `FINAL_STATUS.md`           | চূড়ান্ত স্ট্যাটাস রিপোর্ট       |
+| `src/index.ts`              | সম্পূর্ণ API বাস্তবায়ন          |
+| `docker/compose.dev.yml`    | ডেভেলপমেন্ট স্ট্যাক              |
+| `.github/workflows/ci.yml`  | CI/CD পাইপলাইন                   |
 
 ---
 
 ## 🧪 পরীক্ষা করার বিষয়গুলি
 
 ### স্বাস্থ্য চেক
+
 ```bash
 curl http://localhost:3000/health
 ```
 
 **প্রত্যাশিত:**
+
 ```json
 {
   "status": "healthy",
@@ -208,6 +222,7 @@ curl http://localhost:3000/health
 ```
 
 ### ডাউনলোড শুরু করুন (দীর্ঘ বিলম্ব)
+
 ```bash
 npm run start
 
@@ -221,6 +236,7 @@ curl -X POST http://localhost:3000/v1/download/start \
 ```
 
 ### ডাউনলোড চেক করুন (দ্রুত)
+
 ```bash
 curl -X POST http://localhost:3000/v1/download/check \
   -H "Content-Type: application/json" \
@@ -228,6 +244,7 @@ curl -X POST http://localhost:3000/v1/download/check \
 ```
 
 ### Sentry টেস্ট করুন
+
 ```bash
 curl -X POST "http://localhost:3000/v1/download/check?sentry_test=true" \
   -H "Content-Type: application/json" \
@@ -284,6 +301,7 @@ npm run lint:fix
 ## 📖 বিস্তারিত ডকুমেন্টেশন পড়ুন
 
 ### চ্যালেঞ্জ २ এর জন্য (আর্কিটেকচার)
+
 ```
 📄 ARCHITECTURE.md খুলুন এবং পড়ুন:
 
@@ -330,20 +348,23 @@ npm run lint:fix
    - Real-time যোগাযোগ
 
 २. **DevOps দক্ষতা**
-   - Docker containerization
-   - GitHub Actions CI/CD
-   - Infrastructure management
+
+- Docker containerization
+- GitHub Actions CI/CD
+- Infrastructure management
 
 ३. **ব্যাকএন্ড ডেভেলপমেন্ট**
-   - API ডিজাইন (OpenAPI/Zod)
-   - ডাটাবেস ডিজাইন
-   - ত্রুটি পরিচালনা
-   - নিরাপত্তা সর্বোত্তম অনুশীলন
+
+- API ডিজাইন (OpenAPI/Zod)
+- ডাটাবেস ডিজাইন
+- ত্রুটি পরিচালনা
+- নিরাপত্তা সর্বোত্তম অনুশীলন
 
 ४. **ফুল-স্ট্যাক ইন্টিগ্রেশন**
-   - Frontend-backend কমিউনিকেশন
-   - WebSocket রিয়েল-টাইম আপডেট
-   - End-to-end ট্রেসিং
+
+- Frontend-backend কমিউনিকেশন
+- WebSocket রিয়েল-টাইম আপডেট
+- End-to-end ট্রেসিং
 
 ---
 
