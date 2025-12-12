@@ -525,6 +525,3 @@ Cost Consideration:
 ```
 
 ---
-
-
-
