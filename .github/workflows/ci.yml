@@ -40,21 +40,6 @@ jobs:
     runs-on: ubuntu-24.04
     needs: lint
     timeout-minutes: 15
-    services:
-      minio:
-        image: minio/minio:latest
-        ports:
-          - 9000:9000
-          - 9001:9001
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        options: >-
-          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --health-start-period 10s
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -68,17 +53,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Start MinIO
+        run: |
+          echo "Starting MinIO server..."
+          docker run -d \
+            --name minio \
+            -p 9000:9000 \
+            -p 9001:9001 \
+            -e MINIO_ROOT_USER=minioadmin \
+            -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data --console-address ":9001"
+          echo "MinIO container started"
+
       - name: Wait for MinIO to be ready
         run: |
-          echo "Waiting for MinIO service to be healthy..."
-          for i in {1..30}; do
+          echo "Waiting for MinIO service to be ready..."
+          max_attempts=60
+          attempt=0
+          while [ $attempt -lt $max_attempts ]; do
+            # Try to connect to MinIO health endpoint
             if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
-              echo "MinIO is ready!"
-              break
+              echo "✅ MinIO is ready!"
+              exit 0
             fi
-            echo "Waiting for MinIO... attempt $i"
+            # Also try simple TCP connection as fallback
+            if timeout 2 bash -c "cat < /dev/null > /dev/tcp/localhost/9000" 2>/dev/null; then
+              echo "MinIO port is open, waiting a bit more..."
+              sleep 3
+              if curl -sf http://localhost:9000/minio/health/live > /dev/null 2>&1; then
+                echo "✅ MinIO is ready!"
+                exit 0
+              fi
+            fi
+            attempt=$((attempt + 1))
+            echo "Waiting for MinIO... attempt $attempt/$max_attempts"
             sleep 2
           done
+          echo "❌ MinIO did not become ready in time"
+          docker logs minio || true
+          exit 1
+
+      - name: Cleanup MinIO
+        if: always()
+        run: |
+          docker stop minio || true
+          docker rm minio || true
 
       - name: Setup MinIO bucket
         run: |
