@@ -56,7 +56,7 @@ jobs:
       - name: Start services with Docker Compose
         run: |
           echo "Starting MinIO service..."
-          docker-compose -f docker/compose.dev.yml up -d minio minio-init
+          docker compose -f docker/compose.dev.yml up -d minio minio-init
           echo "Services started, waiting for MinIO to be ready..."
 
       - name: Wait for MinIO to be ready
@@ -76,7 +76,7 @@ jobs:
           done
           if [ $attempt -eq $max_attempts ]; then
             echo "❌ MinIO failed to become ready"
-            docker-compose -f docker/compose.dev.yml logs minio
+            docker compose -f docker/compose.dev.yml logs minio
             exit 1
           fi
 
@@ -103,7 +103,7 @@ jobs:
 
       - name: Stop services
         if: always()
-        run: docker-compose -f docker/compose.dev.yml down
+        run: docker compose -f docker/compose.dev.yml down
 
       - name: Test Results Summary
         if: always()
